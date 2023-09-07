@@ -1,54 +1,41 @@
-from pprint import pprint
-
-import pyautogui
 import telebot
 import time
-
+import win32api
 import config
+import pyscreenshot
 
 
 class ScreenPusher:
     def __init__(self, token, user_list):
-        self.BOT = telebot.TeleBot(token=token)
-        self.USER_LIST = user_list
+        self._BOT = telebot.TeleBot(token=token)
+        self._USER_LIST = user_list
 
-    def make_screenshot(self, path_for_save):
-        myScreenshot = pyautogui.screenshot()
-        myScreenshot.save(path_for_save)
-        time.sleep(0.3)
+    def _make_screenshot(self, path_for_save='./tmp.jpg'):
+        screenshot = pyscreenshot.grab()
+        screenshot.save(path_for_save)
 
-    def notify_users(self, text=None, path_to_img=None):
-        if text is None: text = ""
-        if path_to_img != None:
-            img = open(path_to_img, 'rb')
-            file_id = 0
-            for user in self.USER_LIST:
+    def _notify_users(self, text='', path_to_img='./tmp.jpg'):
+        with open(path_to_img, 'rb') as img:
+            for user in self._USER_LIST:
                 try:
-                    if file_id == 0:
-                        file_id = self.BOT.send_photo(user, img, caption=text).json['photo'][-1]['file_id']
-                    else:
-                        self.BOT.send_photo(user, file_id, caption=text)
-                except Exception as e:
-                    print(e)
-            img.close()
-        else:
-            for user in self.USER_LIST:
-                try:
-                    self.BOT.send_message(user, text)
-                except Exception as e:
-                    print(e)
+                    self._BOT.send_document(user, img, caption=text)
+                except Exception:
+                    pass
 
-    def screenshotWorker(self, text="Новый скриншот", timeout=3):
+    def screenshot_worker(self, text="Новый скриншот"):
         while True:
-            time.sleep(timeout)
-            try:
-                self.make_screenshot("./tmp.jpg")
-                self.notify_users(text=text, path_to_img="./tmp.jpg")
-            except Exception as e:
-                self.notify_users(text=f"Произошла ошибка: {e}")
+            time.sleep(0.1)
+            if win32api.GetKeyState(0x04) < 0:
+                try:
+                    self._make_screenshot()
+                    self._notify_users(text=text)
+                except Exception as e:
+                    self._notify_users(text=f"Произошла ошибка: {e}")
 
+            if win32api.GetKeyState(0x79) < 0:
+                break
 
 
 if __name__ == '__main__':
     sp = ScreenPusher(token=config.BOT_TOKEN, user_list=config.USER_LIST)
-    sp.screenshotWorker(text=config.TEXT_FOR_SEND, timeout=config.TIMEOUT)
+    sp.screenshot_worker(text=config.TEXT_FOR_SEND)
